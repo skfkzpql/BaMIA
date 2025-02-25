@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <ImageView
+        android:id="@+id/imageViewThumbnail"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:scaleType="centerCrop" />
+
+    <!-- 파일명 그대로 표시 -->
+    <TextView
+        android:id="@+id/tvCaptureReason"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="파일명"
+        android:textSize="12sp"
+        android:textColor="@android:color/black"
+        android:layout_marginTop="4dp" />
+
+    <ImageButton
+        android:id="@+id/btnDeleteImage"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="end"
+        android:background="@android:color/transparent"
+        android:src="@android:drawable/ic_menu_delete"
+        android:contentDescription="Delete Image" />
+</LinearLayout>
