@@ -34,7 +34,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_preferences"
+            android:src="@drawable/setting"
             android:contentDescription="Settings" />
 
         <ImageButton
@@ -42,7 +42,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_info_details"
+            android:src="@drawable/log_history"
             android:contentDescription="Logs" />
     </LinearLayout>
 
@@ -85,7 +85,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_camera"
+            android:src="@drawable/camera_switch"
             android:contentDescription="Switch Camera" />
 
         <ImageButton
@@ -94,7 +94,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_camera"
+            android:src="@drawable/capture"
             android:contentDescription="Capture" />
 
         <ImageButton
@@ -103,7 +103,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/presence_offline"
+            android:src="@drawable/stream_off"
             android:contentDescription="Stream Control" />
 
         <ImageButton
@@ -112,7 +112,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_lock_silent_mode_off"
+            android:src="@drawable/silent_off"
             android:contentDescription="Sleep Mode" />
 
         <ImageButton
@@ -121,7 +121,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_gallery"
+            android:src="@drawable/gallery"
             android:contentDescription="Gallery" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -4,15 +4,34 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="4dp">
+    android:padding="4dp"
+    android:layout_marginTop="10dp">
 
-    <ImageView
-        android:id="@+id/imageViewThumbnail"
+    <!-- 이미지와 삭제 버튼을 겹치게 배치하려고 FrameLayout 사용 -->
+    <FrameLayout
         android:layout_width="120dp"
-        android:layout_height="120dp"
-        android:scaleType="centerCrop" />
+        android:layout_height="120dp">
 
-    <!-- 파일명 그대로 표시 -->
+        <!-- 이미지 뷰 -->
+        <ImageView
+            android:id="@+id/imageViewThumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"/>
+
+        <!-- 삭제 버튼 (오른쪽 아래에 배치) -->
+        <ImageButton
+            android:id="@+id/btnDeleteImage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:background="@android:color/transparent"
+            android:src="@drawable/delete"
+            android:paddingBottom="3dp"
+            android:contentDescription="Delete Image"/>
+    </FrameLayout>
+
+    <!-- 파일명 표시 -->
     <TextView
         android:id="@+id/tvCaptureReason"
         android:layout_width="wrap_content"
@@ -20,14 +39,5 @@
         android:text="파일명"
         android:textSize="12sp"
         android:textColor="@android:color/black"
-        android:layout_marginTop="4dp" />
-
-    <ImageButton
-        android:id="@+id/btnDeleteImage"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_gravity="end"
-        android:background="@android:color/transparent"
-        android:src="@android:drawable/ic_menu_delete"
-        android:contentDescription="Delete Image" />
+        android:layout_marginTop="4dp"/>
 </LinearLayout>

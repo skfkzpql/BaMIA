@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp">
@@ -54,22 +55,29 @@
             android:layout_height="wrap_content" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnSave"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Save"
-        app:layout_constraintTop_toBottomOf="@id/tilCameraName"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="24dp" />
-
+    <!-- Save 버튼 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnModeSelect"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:drawableLeft="@drawable/camera_mode"
         android:text="모드 선택"
-        app:layout_constraintTop_toBottomOf="@id/btnSave"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@id/tilCameraName"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btnSave"
+        android:layout_marginTop="24dp"
+        android:layout_marginRight="5dp" />
+
+    <!-- Mode Select 버튼 -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSave"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:drawableLeft="@drawable/confirm"
+        android:text="저장"
+        app:layout_constraintTop_toBottomOf="@id/tilCameraName"
+        app:layout_constraintStart_toEndOf="@id/btnModeSelect"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="24dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
