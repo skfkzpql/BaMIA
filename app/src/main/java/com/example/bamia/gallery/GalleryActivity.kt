@@ -3,6 +3,9 @@ package com.example.bamia.gallery
 import android.app.AlertDialog
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,8 +20,8 @@ class GalleryActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: GalleryAdapter
     private lateinit var spinnerFilterType: Spinner
-    private lateinit var etFilterValue: EditText
-    private lateinit var btnApplyFilter: Button
+    private lateinit var etSearch: EditText
+    private lateinit var btnFilter: ImageButton
 
     private var currentImages: List<SavedImage> = emptyList()
 
@@ -27,18 +30,16 @@ class GalleryActivity : AppCompatActivity() {
         setContentView(R.layout.activity_gallery)
 
         spinnerFilterType = findViewById(R.id.spinnerFilterType)
-        etFilterValue = findViewById(R.id.etFilterValue)
-        btnApplyFilter = findViewById(R.id.btnApplyFilter)
+        etSearch = findViewById(R.id.etSearch)
+        btnFilter = findViewById(R.id.btnFilter)
         recyclerView = findViewById(R.id.recyclerViewGallery)
         recyclerView.layoutManager = GridLayoutManager(this, 3)
 
-        // 스피너에 필터 옵션 설정
         val filterOptions = arrayOf("전체", "아기이름", "연도", "월", "일", "표정")
         spinnerFilterType.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, filterOptions)
 
         currentImages = GalleryManager.getSavedImages(this)
         adapter = GalleryAdapter(currentImages) { savedImage ->
-            // 삭제 버튼 클릭 시에만 삭제 확인 다이얼로그 표시
             AlertDialog.Builder(this)
                 .setTitle("이미지 삭제")
                 .setMessage("이 이미지를 삭제하시겠습니까?\n파일명: ${savedImage.displayName}")
@@ -51,26 +52,56 @@ class GalleryActivity : AppCompatActivity() {
         }
         recyclerView.adapter = adapter
 
-        btnApplyFilter.setOnClickListener {
-            val filterTypeText = spinnerFilterType.selectedItem.toString()
-            val filterValue = etFilterValue.text.toString().trim()
-            currentImages = if (filterTypeText == "전체" || filterValue.isEmpty()) {
-                GalleryManager.getSavedImages(this)
-            } else {
-                val filterType = when (filterTypeText) {
-                    "아기이름" -> FilterType.BABY_NAME
-                    "연도" -> FilterType.YEAR
-                    "월" -> FilterType.MONTH
-                    "일" -> FilterType.DAY
-                    "표정" -> FilterType.EXPRESSION
-                    else -> null
-                }
-                filterType?.let {
-                    GalleryManager.filterSavedImages(this, it, filterValue)
-                } ?: GalleryManager.getSavedImages(this)
-            }
-            adapter.updateData(currentImages)
+        btnFilter.setOnClickListener {
+            spinnerFilterType.performClick()
         }
+
+        // 🔹 필터 선택 시 즉시 적용
+        spinnerFilterType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                applyFilter()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // 🔹 검색어 입력 시 실시간 검색
+        etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                applyFilter()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        // 🔹 엔터 키 입력 시 검색 실행 (줄바꿈 X)
+        etSearch.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN) {
+                applyFilter()
+                return@setOnKeyListener true
+            }
+            false
+        }
+    }
+
+    // 🔹 필터 + 검색 적용
+    private fun applyFilter() {
+        val filterTypeText = spinnerFilterType.selectedItem.toString()
+        val searchQuery = etSearch.text.toString().trim()
+
+        currentImages = GalleryManager.getSavedImages(this).filter { image ->
+            val matchesFilter = when (filterTypeText) {
+                "아기이름" -> image.displayName.contains("아기이름", ignoreCase = true)
+                "연도" -> image.displayName.contains(Regex("\\d{4}")) // 연도 필터 (YYYY 형식)
+                "월" -> image.displayName.contains(Regex("\\d{4}년\\d{2}월")) // 연도+월 필터
+                "일" -> image.displayName.contains(Regex("\\d{4}년\\d{2}월\\d{2}일")) // 연도+월+일 필터
+                "표정" -> image.displayName.contains("표정", ignoreCase = true)
+                else -> true
+            }
+            val matchesSearch = searchQuery.isEmpty() || image.displayName.contains(searchQuery, ignoreCase = true)
+            matchesFilter && matchesSearch
+        }
+
+        adapter.updateData(currentImages)
     }
 
     private fun refreshGallery() {
@@ -78,6 +109,7 @@ class GalleryActivity : AppCompatActivity() {
         adapter.updateData(currentImages)
     }
 
+    // 🔹 GalleryAdapter 클래스 내부에 포함
     class GalleryAdapter(
         private var images: List<SavedImage>,
         private val onDeleteClick: (SavedImage) -> Unit
@@ -107,32 +139,30 @@ class GalleryActivity : AppCompatActivity() {
             private val btnDelete: ImageButton = itemView.findViewById(R.id.btnDeleteImage)
 
             fun bind(savedImage: SavedImage, onDeleteClick: (SavedImage) -> Unit) {
-                // 이미지 표시: MediaStore URI 또는 legacy 파일 경로 사용
                 if (savedImage.uri != null) {
                     imageView.setImageURI(savedImage.uri)
                 } else if (savedImage.file != null) {
                     imageView.setImageBitmap(BitmapFactory.decodeFile(savedImage.file.absolutePath))
                 }
-                // 파일명을 그대로 표시 (예: BaMIA_아기이름_YYYYMMdd_HHmmss_<expression>.jpg)
+
                 tvDisplayName.text = savedImage.displayName
 
-                // 이미지 클릭 시 전체 화면으로 크게 보기
                 imageView.setOnClickListener {
                     val context = itemView.context
                     val dialog = AlertDialog.Builder(context).create()
-                    val fullImageView = ImageView(context)
-                    fullImageView.adjustViewBounds = true
-                    fullImageView.scaleType = ImageView.ScaleType.FIT_CENTER
-                    if (savedImage.uri != null) {
-                        fullImageView.setImageURI(savedImage.uri)
-                    } else if (savedImage.file != null) {
-                        fullImageView.setImageBitmap(BitmapFactory.decodeFile(savedImage.file.absolutePath))
+                    val fullImageView = ImageView(context).apply {
+                        adjustViewBounds = true
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        if (savedImage.uri != null) {
+                            setImageURI(savedImage.uri)
+                        } else if (savedImage.file != null) {
+                            setImageBitmap(BitmapFactory.decodeFile(savedImage.file.absolutePath))
+                        }
                     }
                     dialog.setView(fullImageView)
                     dialog.show()
                 }
 
-                // 삭제 버튼 클릭 시 삭제 확인 다이얼로그 (GalleryActivity의 onDeleteClick 호출)
                 btnDelete.setOnClickListener { onDeleteClick(savedImage) }
             }
         }

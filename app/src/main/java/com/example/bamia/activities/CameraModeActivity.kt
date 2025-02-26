@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.Bitmap.Config
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.media.Image
 import android.os.Bundle
@@ -458,9 +459,11 @@ class CameraModeActivity : AppCompatActivity() {
     private fun updateStreamButtonUI() {
         runOnUiThread {
             if (isStreamingActive) {
-                btnStreamControl.setImageResource(android.R.drawable.presence_online)
+                btnStreamControl.setImageResource(R.drawable.stream_on)
+                btnStreamControl.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
             } else {
-                btnStreamControl.setImageResource(android.R.drawable.presence_offline)
+                btnStreamControl.setImageResource(R.drawable.stream_off)
+                btnStreamControl.clearColorFilter()
             }
         }
     }
