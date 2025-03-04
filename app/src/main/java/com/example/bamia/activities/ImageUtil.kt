@@ -7,7 +7,6 @@ import android.media.Image
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
-import java.nio.ByteBuffer
 
 object ImageUtil {
     @OptIn(ExperimentalGetImage::class)

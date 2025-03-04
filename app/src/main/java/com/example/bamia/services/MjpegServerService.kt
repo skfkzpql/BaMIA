@@ -9,8 +9,6 @@ import com.example.bamia.streaming.FrameBuffer
 import com.example.bamia.ui.ExpressionInfoHolder
 import com.example.bamia.ui.SleepInfoHolder
 import fi.iki.elonen.NanoHTTPD
-import fi.iki.elonen.NanoHTTPD.newChunkedResponse
-import fi.iki.elonen.NanoHTTPD.newFixedLengthResponse
 
 class MjpegServerService : Service() {
 

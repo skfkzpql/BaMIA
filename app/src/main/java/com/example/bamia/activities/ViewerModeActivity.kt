@@ -1,10 +1,8 @@
 package com.example.bamia.activities
 
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.*
 import android.webkit.WebView
 import android.widget.ImageButton
 import android.widget.TextView

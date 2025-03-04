@@ -1,6 +1,5 @@
 package com.example.bamia.activities
 
-import android.content.Context
 import android.os.Bundle
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity

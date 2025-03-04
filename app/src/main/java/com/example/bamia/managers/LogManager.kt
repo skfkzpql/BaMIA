@@ -5,7 +5,8 @@ import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 /**
  * 로그 기록 및 파일 관리를 담당합니다.

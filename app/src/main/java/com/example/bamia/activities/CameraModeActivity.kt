@@ -16,12 +16,16 @@ import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -38,7 +42,6 @@ import com.example.bamia.ui.ExpressionDisplayConfig
 import com.example.bamia.ui.ExpressionInfoHolder
 import com.example.bamia.ui.FaceResult
 import com.example.bamia.ui.OverlayView
-import com.example.bamia.ui.SleepInfoHolder
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -46,7 +49,8 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 
 @Suppress("DEPRECATION")
@@ -305,8 +309,8 @@ class CameraModeActivity : AppCompatActivity() {
                         // 얼굴 영역 좌표 변환
                         val overlayWidth = overlayView.width
                         val overlayHeight = overlayView.height
-                        val imageWidth = bitmap?.width ?: 1
-                        val imageHeight = bitmap?.height ?: 1
+                        val imageWidth = bitmap.width ?: 1
+                        val imageHeight = bitmap.height ?: 1
                         val scaleX = overlayWidth.toFloat() / imageWidth
                         val scaleY = overlayHeight.toFloat() / imageHeight
                         val originalBox = face.boundingBox
