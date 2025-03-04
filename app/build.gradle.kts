@@ -71,4 +71,6 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite:2.8.0")
 
     implementation ("org.nanohttpd:nanohttpd:2.3.1")
+
+    implementation ("com.google.android.material:material:1.8.0")
 }

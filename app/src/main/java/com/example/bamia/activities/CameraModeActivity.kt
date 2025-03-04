@@ -1,25 +1,26 @@
 package com.example.bamia.activities
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Bitmap.Config
 import android.graphics.Color
-import android.graphics.Matrix
-import android.graphics.PorterDuff
 import android.graphics.Rect
-import android.media.Image
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
-import android.view.View
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -33,178 +34,202 @@ import com.example.bamia.managers.NetworkManager
 import com.example.bamia.services.MjpegServerService
 import com.example.bamia.streaming.FrameBuffer
 import com.example.bamia.streamingcontrol.StreamingController
+import com.example.bamia.ui.ExpressionDisplayConfig
 import com.example.bamia.ui.ExpressionInfoHolder
 import com.example.bamia.ui.FaceResult
 import com.example.bamia.ui.OverlayView
 import com.example.bamia.ui.SleepInfoHolder
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
-import com.google.common.util.concurrent.ListenableFuture
 
-/**
- * CameraModeActivity
- *
- * 카메라 프리뷰, 얼굴 감지 및 표정 분석, 스트리밍 제어, 절전 모드, 그리고 갤러리로 이동하는 기능을 제공합니다.
- */
+@Suppress("DEPRECATION")
 class CameraModeActivity : AppCompatActivity() {
 
+    // 상단 영역
+    private lateinit var tvNetworkInfo: TextView
+    private lateinit var btnKebab: ImageButton
+
+    // Preview 및 오버레이 영역
     private lateinit var previewView: PreviewView
     private lateinit var overlayView: OverlayView
-    private lateinit var tvNetworkInfo: TextView
-    private lateinit var btnSwitchCamera: ImageButton
-    private lateinit var btnCapture: ImageButton
-    private lateinit var btnSettings: ImageButton
-    private lateinit var btnLogs: ImageButton
-    private lateinit var btnStreamControl: ImageButton
-    private lateinit var btnSleepMode: ImageButton
-    private lateinit var btnGallery: ImageButton  // 갤러리 이동 버튼
 
+    // 하단 버튼들 (수정된 단일 바)
+    private lateinit var btnGallery: ImageButton
+    private lateinit var btnCapture: ImageButton
+    private lateinit var btnSwitchCamera: ImageButton
+
+    // Camera 및 스트리밍 관련
     private var imageCapture: ImageCapture? = null
     private var imageAnalyzer: ImageAnalysis? = null
     private var cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-    private var cameraExecutor = Executors.newSingleThreadExecutor()
+    private val cameraExecutor = Executors.newSingleThreadExecutor()
+    private var isStreamingActive = true
 
-    private var isStreamingActive = false
+    private val expressionHistory = mutableListOf<String>()
+    private var lastEvaluationTime = System.currentTimeMillis()
+
+
+    private var capturedExpressionsToday = mutableSetOf<String>()
+    private var currentCaptureDate: String = getCurrentDate()
+
+    private var lastStableExpression: String? = null
+    private var stableStartTime: Long = System.currentTimeMillis()
+
+    // 절전 모드 관련
     private var isSleepModeActive = false
+    private var sleepOverlay: FrameLayout? = null
 
-    private var sleepStartTime: Long? = null
-    private var isSleeping: Boolean = false
-
+    // ML Kit 얼굴 감지 및 표정 분석
     private val faceDetectorOptions = FaceDetectorOptions.Builder()
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
         .build()
     private val faceDetector = FaceDetection.getClient(faceDetectorOptions)
-
     private lateinit var expressionAnalyzer: ExpressionAnalyzer
     private lateinit var logManager: LogManager
     private lateinit var networkManager: NetworkManager
 
-    private lateinit var sleepOverlay: View
+    // 제스처 감지: 더블 탭과 스와이프(플링)
+    private val cameraGestureDetector by lazy {
+        GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            private val SWIPE_THRESHOLD = 100
+            private val SWIPE_VELOCITY_THRESHOLD = 100
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                toggleSleepMode()
+                return true
+            }
+            override fun onFling(
+                e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float
+            ): Boolean {
+                if (e1 == null || e2 == null) return false
+                val deltaY = e2.y - e1.y
+                if (Math.abs(deltaY) > SWIPE_THRESHOLD && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+                    toggleCamera()
+                    return true
+                }
+                return false
+            }
+        })
+    }
 
-    private val requestPermissions = registerForActivityResult(
+    // 권한 요청 런처
+    private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        Log.d("CameraModeActivity", "Permission callback: $permissions")
-        if (allPermissionsGranted()) {
+        if (permissions.all { it.value }) {
             startCamera()
         } else {
             finish()
         }
     }
 
-    companion object {
-        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
-        private const val FILENAME_FORMAT = "yyyyMMdd_HHmmss"
-    }
+    private val expressionPollInterval = 1000L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_mode)
 
+        // XML 요소 초기화
         previewView = findViewById(R.id.previewView)
         overlayView = findViewById(R.id.overlayView)
         tvNetworkInfo = findViewById(R.id.tvNetworkInfo)
-        btnSwitchCamera = findViewById(R.id.btnSwitchCamera)
+        btnKebab = findViewById(R.id.btnKebab)
+        btnGallery = findViewById(R.id.btnGallery)
         btnCapture = findViewById(R.id.btnCapture)
-        btnSettings = findViewById(R.id.btnSettings)
-        btnLogs = findViewById(R.id.btnLogs)
-        btnStreamControl = findViewById(R.id.btnStreamControl)
-        btnSleepMode = findViewById(R.id.btnSleepMode)
-        btnGallery = findViewById(R.id.btnGallery) // 갤러리 버튼 초기화
+        btnSwitchCamera = findViewById(R.id.btnSwitchCamera)
 
+        // Manager, Analyzer 초기화
         networkManager = NetworkManager.getInstance(this)
         logManager = LogManager.getInstance(applicationContext)
         expressionAnalyzer = ExpressionAnalyzer(applicationContext)
 
-        updateNetworkInfo()
+        updateIpInfo()
 
         if (allPermissionsGranted()) {
             startCamera()
         } else {
-            requestPermissions.launch(REQUIRED_PERMISSIONS)
+            requestPermissionsLauncher.launch(REQUIRED_PERMISSIONS)
         }
 
-        val sleepOverlayLayout = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-            visibility = View.GONE
-            // 터치 시 절전 모드 해제
-            setOnTouchListener { _, _ ->
-                exitSleepMode()
-                true
-            }
-        }
-
-        // 안내 문구 TextView 생성
-        val instructionText = TextView(this).apply {
-            text = "절전모드를 해제하려면 클릭하세요"
-            setTextColor(Color.DKGRAY)  // 아주 어두운 회색
-            textSize = 24f  // 적절한 크기로 설정 (필요에 따라 조정)
-            // 중앙 정렬
-            setPadding(0, 0, 0, 0)
-            gravity = android.view.Gravity.CENTER
-        }
-
-        // FrameLayout에 TextView 추가 (전체 영역 중앙에 배치)
-        sleepOverlayLayout.addView(
-            instructionText,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            ).apply {
-                gravity = android.view.Gravity.CENTER
-            }
-        )
-
-        // 최상위 컨테이너에 절전 오버레이 추가
-        (findViewById<View>(android.R.id.content) as? ViewGroup)?.addView(
-            sleepOverlayLayout, ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
-
-        sleepOverlay = sleepOverlayLayout
-
-        btnSwitchCamera.setOnClickListener { toggleCamera() }
-        btnCapture.setOnClickListener { capturePhoto() }
-        btnSettings.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
-        btnLogs.setOnClickListener { startActivity(Intent(this, LogsActivity::class.java)) }
-        btnStreamControl.setOnClickListener { toggleStreaming() }
-        btnSleepMode.setOnClickListener { toggleSleepMode() }
+        // 하단 버튼 클릭 리스너 설정
         btnGallery.setOnClickListener { startActivity(Intent(this, GalleryActivity::class.java)) }
+        btnCapture.setOnClickListener { capturePhoto() }
+        btnSwitchCamera.setOnClickListener { toggleCamera() }
 
+        // 케밥 메뉴 설정
+        val kebabPopup = PopupMenu(this, btnKebab)
+        with(kebabPopup.menu) {
+            add(0, 1, 0, "얼굴 인식 표시").setCheckable(true).setChecked(ExpressionDisplayConfig.showFaceBox)
+            add(0, 2, 1, "표정 분석").setCheckable(true).setChecked(ExpressionDisplayConfig.showExpression)
+            add(0, 3, 2, "눈 뜸 확률").setCheckable(true).setChecked(ExpressionDisplayConfig.showEyeProbability)
+            add(0, 4, 3, "웃음 확률").setCheckable(true).setChecked(ExpressionDisplayConfig.showSmileProbability)
+            add(0, 5, 4, "모드 변경")
+            add(0, 6, 5, "절전 모드")
+            add(0, 7, 6, "로그 확인")
+            add(0, 8, 7, "설정")
+            add(0, 9, 8, "정보")
+        }
+        kebabPopup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> {
+                    ExpressionDisplayConfig.showFaceBox = !item.isChecked
+                    item.isChecked = ExpressionDisplayConfig.showFaceBox
+                    true
+                }
+                2 -> {
+                    ExpressionDisplayConfig.showExpression = !item.isChecked
+                    item.isChecked = ExpressionDisplayConfig.showExpression
+                    true
+                }
+                3 -> {
+                    ExpressionDisplayConfig.showEyeProbability = !item.isChecked
+                    item.isChecked = ExpressionDisplayConfig.showEyeProbability
+                    true
+                }
+                4 -> {
+                    ExpressionDisplayConfig.showSmileProbability = !item.isChecked
+                    item.isChecked = ExpressionDisplayConfig.showSmileProbability
+                    true
+                }
+                5 -> { startActivity(Intent(this, LauncherActivity::class.java)); finish(); true }
+                6 -> { toggleSleepMode(); true }
+                7 -> { startActivity(Intent(this, LogsActivity::class.java)); true }
+                8 -> { startActivity(Intent(this, SettingsActivity::class.java).apply { putExtra("caller", "camera") }); true }
+                9 -> { /* 정보 화면 구현 예정 */ true }
+                else -> false
+            }
+        }
+        btnKebab.setOnClickListener { kebabPopup.show() }
+
+        // 절전 모드 오버레이 설정
+        setupSleepOverlay()
+
+        // MJPEG 서버 서비스 시작
         startService(Intent(this, MjpegServerService::class.java))
-        Log.d("CameraModeActivity", "MJPEG Server Service started.")
+
+        // 표정 정보 폴링 시작
+        startExpressionPolling(networkManager.ipAddress, networkManager.pin)
     }
 
-    override fun onResume() {
-        super.onResume()
-        updateNetworkInfo()
+    private fun updateIpInfo() {
+        tvNetworkInfo.text = "IP: ${networkManager.ipAddress} | PIN: ${networkManager.pin} | 이름: ${getBabyName()}"
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        cameraExecutor.shutdown()
-        faceDetector.close()
-        expressionAnalyzer.close()
-        stopService(Intent(this, MjpegServerService::class.java))
-    }
-
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
+    private fun getBabyName(): String {
+        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        return prefs.getString("camera_name", "BABY") ?: "BABY"
     }
 
     private fun startCamera() {
         Log.d("CameraModeActivity", "startCamera called")
-        val cameraProviderFuture: ListenableFuture<ProcessCameraProvider> =
-            ProcessCameraProvider.getInstance(this)
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build().also {
@@ -220,27 +245,21 @@ class CameraModeActivity : AppCompatActivity() {
                 }
             try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    this,
-                    cameraSelector,
-                    preview,
-                    imageCapture,
-                    imageAnalyzer
-                )
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalyzer)
             } catch (exc: Exception) {
                 Log.e("CameraModeActivity", "Use case binding failed", exc)
             }
         }, ContextCompat.getMainExecutor(this))
     }
 
-    @OptIn(ExperimentalGetImage::class)
+    @androidx.annotation.OptIn(ExperimentalGetImage::class)
     private fun processImageProxy(imageProxy: ImageProxy) {
-        val bitmap = imageProxyToBitmap(imageProxy)
+        val bitmap = ImageUtil.imageProxyToBitmap(imageProxy)
         if (bitmap != null && isStreamingActive) {
             val baos = ByteArrayOutputStream()
             bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos)
             FrameBuffer.currentFrame = baos.toByteArray()
-            Log.d("CameraModeActivity", "FrameBuffer updated, size: ${FrameBuffer.currentFrame?.size ?: 0} bytes")
+            Log.d("CameraModeActivity", "FrameBuffer updated, size: ${FrameBuffer.currentFrame?.size ?: 0}")
         }
         val mediaImage = imageProxy.image
         if (mediaImage != null) {
@@ -248,81 +267,48 @@ class CameraModeActivity : AppCompatActivity() {
             faceDetector.process(inputImage)
                 .addOnSuccessListener { faces ->
                     val faceResults = mutableListOf<FaceResult>()
-                    val bitmapInputImage = InputImage.fromBitmap(bitmap ?: return@addOnSuccessListener, 0)
-                    val overlayWidth = overlayView.width
-                    val overlayHeight = overlayView.height
-                    val imageWidth = bitmap?.width ?: 1
-                    val imageHeight = bitmap?.height ?: 1
-                    val scaleX = overlayWidth.toFloat() / imageWidth
-                    val scaleY = overlayHeight.toFloat() / imageHeight
-
-                    // 테스트용 임계값: 눈 감음 3초
-                    val sleepDetectionThreshold = 3000L  // 3초
-                    val currentTime = System.currentTimeMillis()
-
-                    // 눈 상태 및 얼굴 검출 로직
                     if (faces.isNotEmpty()) {
-                        // 얼굴이 검출됨 → 첫 번째 얼굴 기준 처리
                         val face = faces[0]
-                        val leftEyeProb = face.leftEyeOpenProbability
-                        val rightEyeProb = face.rightEyeOpenProbability
+                        // 모델로부터 표정 결과(예: "happiness", "sadness", "neutral", "surprise", "fear", "disgust", "anger")를 받음.
+                        val currentFrameExpression = expressionAnalyzer.analyzeExpression(
+                            InputImage.fromBitmap(bitmap ?: return@addOnSuccessListener, 0),
+                            face.boundingBox
+                        )
+                        // 즉각적인 오버레이에는 현재 결과를 표시
+                        ExpressionInfoHolder.currentExpression = currentFrameExpression
 
-                        if (leftEyeProb != null && rightEyeProb != null) {
-                            val eyesClosed = leftEyeProb < 0.5 && rightEyeProb < 0.5
-                            if (eyesClosed) {
-                                // 눈이 감겼을 경우
-                                if (!isSleeping) {
-                                    if (sleepStartTime == null) {
-                                        sleepStartTime = currentTime
-                                        Log.d("CameraModeActivity", "Eyes closed detected, starting sleep timer at ${getCurrentTimeStamp()}")
-                                    } else {
-                                        val elapsed = currentTime - sleepStartTime!!
-                                        if (elapsed >= sleepDetectionThreshold) {
-                                            isSleeping = true
-                                            isSleeping = true
-                                            // 아기 이름 가져오기
-                                            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-                                            val babyName = prefs.getString("camera_name", "DefaultName") ?: "DefaultName"
-                                            // 현재 시간을 "HH시 mm분" 형식으로 변환
-                                            val detectedTime = sleepStartTime!! + sleepDetectionThreshold
-                                            val formattedTime = SimpleDateFormat("HH시 mm분", Locale.getDefault()).format(Date(detectedTime))
-                                            val message = "$babyName 이 $formattedTime 에 수면을 시작했습니다"
-                                            SleepInfoHolder.sleepMessage = message
-                                            Log.d("CameraModeActivity", "Sleep detected: 눈 감음 - ${sleepDetectionThreshold} ms 지속 at ${getCurrentTimeStamp()}")
-                                        }
-                                    }
+                        val currentTime = System.currentTimeMillis()
+                        // 만약 이전과 표정이 달라졌다면 타이머를 초기화
+                        if (lastStableExpression == null || lastStableExpression != currentFrameExpression) {
+                            lastStableExpression = currentFrameExpression
+                            stableStartTime = currentTime
+                        } else {
+                            // 같은 표정이 연속하여 나타난 경우
+                            if (currentTime - stableStartTime >= 1000L) { // 1초 이상 유지되면
+                                // 날짜가 바뀌었으면 캡쳐된 표정 set 초기화
+                                val today = getCurrentDate()
+                                if (today != currentCaptureDate) {
+                                    capturedExpressionsToday.clear()
+                                    currentCaptureDate = today
                                 }
-                            } else { // 눈이 뜨면
-                                if (isSleeping) {
-                                    val sleepDuration = currentTime - (sleepStartTime ?: currentTime)
-                                    val formattedTime = SimpleDateFormat("HH시 mm분", Locale.getDefault()).format(Date())
-                                    val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-                                    val babyName = prefs.getString("camera_name", "DefaultName") ?: "DefaultName"
-                                    SleepInfoHolder.sleepMessage = "$babyName 이 $formattedTime 에 기상했습니다"
-                                    Log.d("CameraModeActivity", "Awake detected: 눈 뜸 - 기상 메시지 설정 at ${getCurrentTimeStamp()}")
-                                    isSleeping = false
-                                    sleepStartTime = null
-                                } else {
-                                    sleepStartTime = null
+                                // 해당 표정이 "face not detected"가 아니고, 아직 캡쳐되지 않았다면
+                                if (currentFrameExpression != "face not detected" &&
+                                    !capturedExpressionsToday.contains(currentFrameExpression)) {
+                                    autoCapturePhoto(currentFrameExpression)
+                                    capturedExpressionsToday.add(currentFrameExpression)
                                 }
+                                // 타이머 재설정 (1초마다 자동 캡쳐 조건을 체크)
+                                stableStartTime = currentTime
                             }
                         }
-                    } else {
-                        // 얼굴 미검출 시: 만약 이전에 수면 상태였다면 알림
-                        ExpressionInfoHolder.currentExpression = "unknown"
-                        if (isSleeping) {
-                            val formattedTime = SimpleDateFormat("HH시 mm분", Locale.getDefault()).format(Date())
-                            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-                            val babyName = prefs.getString("camera_name", "DefaultName") ?: "DefaultName"
-                            SleepInfoHolder.sleepMessage = "수면 중 $babyName 의 얼굴이 감지되지 않습니다. $formattedTime"
-                            Log.d("CameraModeActivity", "face not detected while sleeping:  ${getCurrentTimeStamp()}")
-                            isSleeping = false
-                            sleepStartTime = null
-                        }
-                    }
 
-                    // 기존의 얼굴별 표정 및 오버레이 처리
-                    for (face in faces) {
+                        // 얼굴 영역 좌표 변환
+                        val overlayWidth = overlayView.width
+                        val overlayHeight = overlayView.height
+                        val imageWidth = bitmap?.width ?: 1
+                        val imageHeight = bitmap?.height ?: 1
+                        val scaleX = overlayWidth.toFloat() / imageWidth
+                        val scaleY = overlayHeight.toFloat() / imageHeight
                         val originalBox = face.boundingBox
                         val transformedBox = if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
                             Rect(
@@ -339,29 +325,17 @@ class CameraModeActivity : AppCompatActivity() {
                                 (originalBox.bottom * scaleY).toInt()
                             )
                         }
-                        val expression = expressionAnalyzer.analyzeExpression(bitmapInputImage, originalBox)
-                        // 얼굴이 검출되었으나 표정이 'unknown'이면 업데이트하지 않음
-                        if (expression.lowercase(Locale.getDefault()) != "unknown" && expression.isNotEmpty()) {
-                            ExpressionInfoHolder.currentExpression = expression
-                        }
                         val leftEyeProb = face.leftEyeOpenProbability
                         val rightEyeProb = face.rightEyeOpenProbability
                         val smilingProb = face.smilingProbability
-
                         val faceResult = FaceResult(
                             boundingBox = transformedBox,
-                            predictedExpression = expression,
+                            predictedExpression = currentFrameExpression, // 즉각 결과
                             leftEyeProbability = leftEyeProb,
                             rightEyeProbability = rightEyeProb,
                             smilingProbability = smilingProb
                         )
                         faceResults.add(faceResult)
-
-                        // 자동 캡쳐: 얼굴 표정이 새롭게 감지된 경우
-                        if (!logManager.isExpressionLoggedToday(expression)) {
-                            logManager.logEvent("Expression detected: $expression at ${getCurrentTimeStamp()}")
-                            capturePhotoFromBitmap(bitmap, expression)
-                        }
                     }
                     runOnUiThread { overlayView.updateResults(faceResults) }
                 }
@@ -371,127 +345,127 @@ class CameraModeActivity : AppCompatActivity() {
         }
     }
 
-    @OptIn(ExperimentalGetImage::class)
-    private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap? {
-        val mediaImage = imageProxy.image ?: return null
-        return yuv420ToBitmap(mediaImage, imageProxy.width, imageProxy.height, imageProxy.planes)
-            ?.let { bmp ->
-                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-                if (rotationDegrees != 0) {
-                    val matrix = Matrix()
-                    matrix.postRotate(rotationDegrees.toFloat())
-                    Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
-                } else {
-                    bmp
-                }
-            }
-    }
-
-    private fun yuv420ToBitmap(image: Image, width: Int, height: Int, planes: Array<ImageProxy.PlaneProxy>): Bitmap? {
-        try {
-            val yBuffer = planes[0].buffer
-            val uBuffer = planes[1].buffer
-            val vBuffer = planes[2].buffer
-
-            val yRowStride = planes[0].rowStride
-            val uvRowStride = planes[1].rowStride
-            val uvPixelStride = planes[1].pixelStride
-
-            val bitmap = Bitmap.createBitmap(width, height, Config.ARGB_8888)
-            val pixels = IntArray(width * height)
-
-            for (j in 0 until height) {
-                for (i in 0 until width) {
-                    val yIndex = j * yRowStride + i
-                    val y = 0xff and yBuffer.get(yIndex).toInt()
-                    val uvIndex = (j / 2) * uvRowStride + (i / 2) * uvPixelStride
-                    val u = 0xff and uBuffer.get(uvIndex).toInt()
-                    val v = 0xff and vBuffer.get(uvIndex).toInt()
-
-                    var r = (y + 1.370705f * (v - 128)).toInt()
-                    var g = (y - 0.337633f * (u - 128) - 0.698001f * (v - 128)).toInt()
-                    var b = (y + 1.732446f * (u - 128)).toInt()
-                    r = r.coerceIn(0, 255)
-                    g = g.coerceIn(0, 255)
-                    b = b.coerceIn(0, 255)
-                    pixels[j * width + i] = -0x1000000 or (r shl 16) or (g shl 8) or b
-                }
-            }
-            bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
-            return bitmap
-        } catch (e: Exception) {
-            Log.e("CameraModeActivity", "Error in yuv420ToBitmap conversion", e)
-            return null
+    /**
+     * decideExpression()는 얼굴의 smilingProbability 값을 기준으로 간단하게 표정을 결정합니다.
+     * 필요에 따라 이 함수를 확장하여 더 정밀한 표정 판단 로직을 구현할 수 있습니다.
+     */
+    private fun decideExpression(face: Face, rawExpression: String): String {
+        return when {
+            face.smilingProbability != null && face.smilingProbability > 0.8f -> "happy"
+            face.smilingProbability != null && face.smilingProbability < 0.3f -> "cry"
+            else -> "face not detected"
         }
     }
 
-    // Manual capture: 사용자가 캡쳐 버튼을 누른 경우 -> captureReason: "camera_request"
-    private fun capturePhoto() {
-        capturePhotoFromBitmap(previewView.bitmap, "camera_request")
+    private fun autoCapturePhoto(expression: String) {
+        runOnUiThread {
+            val bitmap: Bitmap = previewView.bitmap ?: return@runOnUiThread
+            val babyName = getBabyName()
+            GalleryManager.saveCapturedImage(this, bitmap, babyName, expression) { filePath ->
+                logManager.logEvent("Auto-captured ($expression): $filePath at ${getCurrentTimeStamp()}")
+            }
+        }
     }
 
-    // 캡쳐된 Bitmap을 GalleryManager를 통해 저장하며, captureReason을 전달
-    private fun capturePhotoFromBitmap(bitmap: Bitmap?, captureExpression: String) {
-        if (bitmap != null) {
-            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-            val babyName = prefs.getString("camera_name", "DefaultName") ?: "DefaultName"
-            GalleryManager.saveCapturedImage(this, bitmap, babyName, captureExpression) { filePath ->
-                logManager.logEvent("Photo captured ($captureExpression): $filePath at ${getCurrentTimeStamp()}")
-            }
-        } else {
-            Log.e("CameraModeActivity", "capturePhotoFromBitmap: Bitmap is null")
+    private fun getCurrentTimeStamp(): String {
+        return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+    }
+
+    private fun getCurrentDate(): String {
+        return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    }
+
+    @OptIn(ExperimentalGetImage::class)
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        event?.let { cameraGestureDetector.onTouchEvent(it) }
+        return super.onTouchEvent(event)
+    }
+
+    // 사진 캡쳐
+    private fun capturePhoto() {
+        val bitmap: Bitmap = previewView.bitmap ?: return
+        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val babyName = prefs.getString("camera_name", "BABY") ?: "BABY"
+        GalleryManager.saveCapturedImage(this, bitmap, babyName, "camera_request") { filePath ->
+            logManager.logEvent("Photo captured (camera_request): $filePath at ${getCurrentTimeStamp()}")
         }
     }
 
     private fun toggleCamera() {
         cameraSelector = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA)
-            CameraSelector.DEFAULT_FRONT_CAMERA
-        else
-            CameraSelector.DEFAULT_BACK_CAMERA
+            CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
         startCamera()
     }
 
-    private fun toggleStreaming() {
-        isStreamingActive = !isStreamingActive
-        updateStreamButtonUI()
-    }
-
-    private fun updateStreamButtonUI() {
-        runOnUiThread {
-            if (isStreamingActive) {
-                btnStreamControl.setImageResource(R.drawable.stream_on)
-                btnStreamControl.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
-            } else {
-                btnStreamControl.setImageResource(R.drawable.stream_off)
-                btnStreamControl.clearColorFilter()
+    private fun startExpressionPolling(ip: String, pin: String) {
+        val handler = Handler(Looper.getMainLooper())
+        val runnable = object : Runnable {
+            override fun run() {
+                fetchExpression(ip, pin) { expression ->
+                    // 별도 TextView 대신 오버레이에 그리도록 함
+                    // (OverlayView에서 설정 옵션에 따라 텍스트가 그려집니다.)
+                }
+                handler.postDelayed(this, expressionPollInterval)
             }
         }
+        handler.post(runnable)
     }
 
-    private fun enterSleepMode() {
-        isSleepModeActive = true
-        // 카메라 프리뷰와 오버레이 숨김
-        previewView.visibility = View.INVISIBLE
-        overlayView.visibility = View.INVISIBLE
-        // 절전 오버레이를 전체 화면에 표시
-        sleepOverlay.visibility = View.VISIBLE
-        // StreamingController 또는 관련 로직에 절전 모드 활성 상태를 알림
-        StreamingController.setSleepMode(this, true)
-        Log.d("CameraModeActivity", "절전 모드 활성화")
+    private fun fetchExpression(ip: String, pin: String, callback: (String) -> Unit) {
+        Thread {
+            try {
+                val url = java.net.URL("http://$ip:8080/expression?pin=$pin")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 3000
+                connection.readTimeout = 3000
+                val response = connection.inputStream.bufferedReader().readText().trim()
+                val displayText = if (response.equals("unknown", ignoreCase = true) || response.isEmpty())
+                    "face not detected" else response
+                callback(displayText)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                callback(" ")
+            }
+        }.start()
     }
 
-    private fun exitSleepMode() {
-        isSleepModeActive = false
-        // 카메라 프리뷰와 오버레이 다시 표시
-        previewView.visibility = View.VISIBLE
-        overlayView.visibility = View.VISIBLE
-        // 절전 오버레이 숨김
-        sleepOverlay.visibility = View.GONE
-        StreamingController.setSleepMode(this, false)
-        Log.d("CameraModeActivity", "절전 모드 해제")
+    private fun setupSleepOverlay() {
+        sleepOverlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            visibility = android.view.View.GONE
+        }
+        val sleepDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                exitSleepMode()
+                return true
+            }
+        })
+        sleepOverlay?.setOnTouchListener { view, event ->
+            sleepDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP) view.performClick()
+            true
+        }
+        val instructionText = TextView(this).apply {
+            text = "두 번 눌러 절전모드를 해제하세요"
+            setTextColor(Color.LTGRAY)
+            textSize = 24f
+            gravity = android.view.Gravity.CENTER
+        }
+        (sleepOverlay as FrameLayout).addView(
+            instructionText,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply { gravity = android.view.Gravity.CENTER }
+        )
+        (findViewById<ViewGroup>(android.R.id.content))?.addView(
+            sleepOverlay, ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
     }
 
-    // 절전 모드 버튼 클릭 시 호출하는 함수
     private fun toggleSleepMode() {
         if (isSleepModeActive) {
             exitSleepMode()
@@ -499,37 +473,46 @@ class CameraModeActivity : AppCompatActivity() {
             enterSleepMode()
         }
     }
-    private fun updateNetworkInfo() {
-        tvNetworkInfo.text = "IP: ${networkManager.ipAddress} | PIN: ${networkManager.pin}"
+
+    private fun enterSleepMode() {
+        isSleepModeActive = true
+        previewView.visibility = android.view.View.INVISIBLE
+        overlayView.visibility = android.view.View.INVISIBLE
+        sleepOverlay?.visibility = android.view.View.VISIBLE
+        StreamingController.setSleepMode(this, true)
+        Log.d("CameraModeActivity", "Sleep mode activated")
     }
 
-    private fun getOutputDirectory(): File {
-        val mediaDir = externalMediaDirs.firstOrNull()?.let {
-            File(it, "BabyCam").apply { mkdirs() }
-        }
-        return if (mediaDir != null && mediaDir.exists()) mediaDir else filesDir
+    private fun exitSleepMode() {
+        isSleepModeActive = false
+        previewView.visibility = android.view.View.VISIBLE
+        overlayView.visibility = android.view.View.VISIBLE
+        sleepOverlay?.visibility = android.view.View.GONE
+        StreamingController.setSleepMode(this, false)
+        Log.d("CameraModeActivity", "Sleep mode deactivated")
     }
 
-    private fun getCurrentTimeStamp(): String {
-        return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun formatDuration(durationMillis: Long): String {
-        val totalSeconds = durationMillis / 1000
-        return when {
-            totalSeconds < 60 -> "$totalSeconds 분"
-            totalSeconds < 3600 -> {
-                val minutes = totalSeconds / 60
-                val seconds = totalSeconds % 60
-                "$minutes 분 $seconds 초"
+    @Suppress("MissingSuperCall")
+    override fun onBackPressed() {
+        MaterialAlertDialogBuilder(this, R.style.AlertDialogTheme)
+            .setTitle("종료 확인")
+            .setMessage("종료하시겠습니까?")
+            .setPositiveButton("종료") { _, _ ->
+                finishAffinity()
             }
-            else -> {
-                val hours = totalSeconds / 3600
-                val minutes = (totalSeconds % 3600) / 60
-                val seconds = totalSeconds % 60
-                "$hours 시간 $minutes 분 $seconds 초"
+            .setNegativeButton("취소") { dialog, _ ->
+                dialog.dismiss()
             }
-        }
+            .show()
     }
 
+
+    companion object {
+        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
+    }
 }

@@ -2,61 +2,62 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Top Bar: Network Info and Kebab Menu (배경: 회색 #222222) -->
+    <!-- 상단 바: 원격 연결 정보와 케밥 메뉴 -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="#222222"
         android:orientation="horizontal"
         android:padding="16dp"
-        android:background="#222222"
+        android:gravity="center_vertical"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+        <!-- 원격 연결 정보: 코드에서 연결된 기기의 IP, PIN, 아기이름으로 업데이트 -->
         <TextView
-            android:id="@+id/tvNetworkInfo"
+            android:id="@+id/tvRemoteInfo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:paddingStart="16dp"
-            android:paddingEnd="8dp"
             android:layout_weight="1"
-            android:text="IP: 0.0.0.0 | PIN: 1234 | 이름: BABY"
+            android:text=""
             android:textColor="#FFFFFF"
             android:textSize="14sp" />
+        <!-- 케밥 메뉴 버튼 -->
         <ImageButton
             android:id="@+id/btnKebab"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_more_vert"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="메뉴" />
     </LinearLayout>
 
-    <!-- Preview Frame: 상단바 아래부터 전체 영역을 채우며, 하단 컨트롤바는 오버랩 -->
+    <!-- 스트리밍 영역: 상단 바 아래부터 전체를 채우며, 하단 컨트롤바 오버랩 -->
     <FrameLayout
-        android:id="@+id/previewFrame"
+        android:id="@+id/streamContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:background="#000000"
         app:layout_constraintTop_toBottomOf="@id/topBar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-        <!-- 카메라 프리뷰 -->
-        <androidx.camera.view.PreviewView
-            android:id="@+id/previewView"
+        <!-- 스트리밍 영상 (WebView) -->
+        <WebView
+            android:id="@+id/webView"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-        <!-- OverlayView: 얼굴 박스 및 기타 오버레이 정보 -->
+        <!-- OverlayView: 표정 정보 등 오버레이 -->
         <com.example.bamia.ui.OverlayView
             android:id="@+id/overlayView"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-        <!-- 하단 컨트롤바 (프리뷰 영역 하단에 오버랩) -->
+        <!-- 하단 컨트롤바 (오버랩, 높이 100dp, 배경: #80444444) -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/bottomBar"
             android:layout_width="match_parent"

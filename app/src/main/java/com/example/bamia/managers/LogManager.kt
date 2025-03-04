@@ -27,7 +27,7 @@ class LogManager private constructor(private val context: Context) {
         val timestamp = getCurrentTimestamp()
         val logEntry = "$timestamp: $event\n"
         PrintWriter(FileWriter(logFile, true)).use { it.print(logEntry) }
-        if (event.startsWith("Expression detected: ")) {
+        if (event.startsWith("Auto-captured")) {
             val expression = event.substringAfter("Expression detected: ").substringBefore(" at ")
             loggedExpressions.add(expression)
         }

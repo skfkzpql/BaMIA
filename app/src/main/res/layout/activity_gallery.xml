@@ -1,69 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="10dp">
+    android:background="#000000">
 
-    <!-- 필터링 UI -->
+    <!-- 상단1: 기본 툴바 -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:id="@+id/toolbarGallery"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="1dp">
-
-        <!-- 검색 바 (EditText + 돋보기 아이콘) -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
+        android:padding="16dp"
+        android:background="#222222"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <ImageButton
+            android:id="@+id/btnBackGallery"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/search_background"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="4dp">
+            android:src="@drawable/ic_back"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="뒤로 가기"/>
+        <TextView
+            android:id="@+id/tvGalleryTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="갤러리"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginStart="8dp"/>
+    </LinearLayout>
 
-            <EditText
-                android:id="@+id/etSearch"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:background="@android:color/transparent"
-                android:hint="Search"
-                android:padding="8dp"
-                android:textSize="16sp" />
-
-            <ImageButton
-                android:id="@+id/btnSearch"
+    <!-- 상단2: 필터 영역 (배경 없음) -->
+    <LinearLayout
+        android:id="@+id/filterAreaContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintTop_toBottomOf="@id/toolbarGallery"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <!-- 필터 영역 -->
+        <HorizontalScrollView
+            android:id="@+id/filterScroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent">
+            <LinearLayout
+                android:id="@+id/filterArea"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/search"
-                android:contentDescription="Search" />
-        </LinearLayout>
+                android:orientation="horizontal"
+                android:padding="8dp">
+                <TextView
+                    android:id="@+id/tvFilterLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="필터:"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"/>
+                <Button
+                    android:id="@+id/btnNeutral"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="중립"/>
+                <Button
+                    android:id="@+id/btnHappy"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="행복"/>
+                <Button
+                    android:id="@+id/btnSad"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="슬픔"/>
+                <Button
+                    android:id="@+id/btnSurprised"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="놀람"/>
+                <Button
+                    android:id="@+id/btnScared"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="두려움"/>
+                <Button
+                    android:id="@+id/btnDisgust"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="혐오"/>
+                <Button
+                    android:id="@+id/btnAngry"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="분노"/>
+                <Button
+                    android:id="@+id/btnCaptureFilter"
+                    style="@style/FilterButtonStyle"
+                    android:layout_marginStart="4dp"
+                    android:text="캡쳐"/>
+            </LinearLayout>
+        </HorizontalScrollView>
+        <!-- 구분선 -->
+        <View
+            android:id="@+id/dividerGallery"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="#444444"/>
+    </LinearLayout>
 
-        <!-- 필터 아이콘 -->
+    <!-- 중단: RecyclerView (갤러리 이미지 그리드) -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewGallery"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:padding="4dp"
+        android:clipToPadding="false"
+        app:layout_constraintTop_toBottomOf="@id/filterAreaContainer"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- 다중 선택 모드 시 나타나는 하단 오버레이 -->
+    <LinearLayout
+        android:id="@+id/selectionOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:background="#80444444"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:visibility="visible">
+
         <ImageButton
-            android:id="@+id/btnFilter"
+            android:id="@+id/btnDeleteSelectedOverlay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/filter"
-            android:padding="4dp"
-            android:contentDescription="Filter" />
-
-        <Spinner
-            android:id="@+id/spinnerFilterType"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
+            android:contentDescription="삭제"
+            android:src="@drawable/ic_delete2" />
     </LinearLayout>
-
-    <!-- RecyclerView for gallery items -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerViewGallery"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

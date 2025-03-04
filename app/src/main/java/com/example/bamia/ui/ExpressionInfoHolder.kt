@@ -1,6 +1,8 @@
 package com.example.bamia.ui
 
+/**
+ * 알림용 최종 표정 정보만 저장하는 객체.
+ */
 object ExpressionInfoHolder {
-    @Volatile
-    var currentExpression: String = "N/A"
+    var currentExpression: String = "unknown"
 }

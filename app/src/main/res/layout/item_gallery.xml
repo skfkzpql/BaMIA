@@ -1,43 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<com.example.bamia.ui.SquareFrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="4dp"
-    android:layout_marginTop="10dp">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_margin="2dp">
 
-    <!-- 이미지와 삭제 버튼을 겹치게 배치하려고 FrameLayout 사용 -->
-    <FrameLayout
-        android:layout_width="120dp"
-        android:layout_height="120dp">
+    <ImageView
+        android:id="@+id/imageViewThumbnail"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:adjustViewBounds="true"
+        android:background="@drawable/white_border"/>
 
-        <!-- 이미지 뷰 -->
-        <ImageView
-            android:id="@+id/imageViewThumbnail"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"/>
-
-        <!-- 삭제 버튼 (오른쪽 아래에 배치) -->
-        <ImageButton
-            android:id="@+id/btnDeleteImage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:background="@android:color/transparent"
-            android:src="@drawable/delete"
-            android:paddingBottom="3dp"
-            android:contentDescription="Delete Image"/>
-    </FrameLayout>
-
-    <!-- 파일명 표시 -->
-    <TextView
-        android:id="@+id/tvCaptureReason"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="파일명"
-        android:textSize="12sp"
-        android:textColor="@android:color/black"
-        android:layout_marginTop="4dp"/>
-</LinearLayout>
+    <!-- 선택 상태 인디케이터 – 왼쪽 상단에 고정 -->
+    <ImageView
+        android:id="@+id/ivSelectionIndicator"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_margin="4dp"
+        android:layout_gravity="top|start"
+        android:src="@drawable/ic_unselected"
+        android:visibility="gone"/>
+</com.example.bamia.ui.SquareFrameLayout>

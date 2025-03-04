@@ -37,9 +37,14 @@
             android:name="com.example.bamia.activities.CameraModeActivity"
             android:exported="true" />
 
-        <!-- Viewer Activity -->
+        <!-- Viewer Connection Activity -->
         <activity
-            android:name="com.example.bamia.activities.ViewerActivity"
+            android:name="com.example.bamia.activities.ViewerConnectionActivity"
+            android:exported="true" />
+
+        <!-- Viewer Mode Activity -->
+        <activity
+            android:name="com.example.bamia.activities.ViewerModeActivity"
             android:exported="true" />
 
         <!-- Settings Activity -->
@@ -55,6 +60,11 @@
         <!-- Gallery Activity -->
         <activity
             android:name="com.example.bamia.gallery.GalleryActivity"
+            android:exported="true" />
+
+        <!-- Gallery FullScreen Activity -->
+        <activity
+            android:name="com.example.bamia.activities.FullScreenImageActivity"
             android:exported="true" />
 
         <!-- MJPEG 스트리밍 서버 서비스 -->

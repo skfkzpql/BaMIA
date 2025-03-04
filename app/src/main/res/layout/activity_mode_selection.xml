@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- 상단 중앙의 BaMIA 텍스트 -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="BaMIA"
+        android:textSize="48sp"
+        android:textColor="#FFFFFF"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginTop="80dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 하단 중앙의 카메라 모드 시작 버튼 -->
+    <Button
+        android:id="@+id/btnCameraMode"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="카메라 모드 시작"
+        android:textSize="20sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/btnViewerMode"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="20dp"
+        android:backgroundTint="#333333"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/rounded_button" />
+
+    <!-- 하단 중앙의 뷰어 모드 시작 버튼 -->
+    <Button
+        android:id="@+id/btnViewerMode"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="뷰어 모드 시작"
+        android:textSize="20sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="40dp"
+        android:backgroundTint="#333333"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/rounded_button" />
+
+    <!-- WIFI 연결 안내 텍스트 (버튼 위쪽) -->
+    <TextView
+        android:id="@+id/tvWifiWarning"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="WIFI를 연결해주세요"
+        android:textSize="16sp"
+        android:textColor="#FF4444"
+        app:layout_constraintBottom_toTopOf="@id/btnCameraMode"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="20dp"
+        android:visibility="gone"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

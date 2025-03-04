@@ -2,54 +2,59 @@ package com.example.bamia.activities
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.net.ConnectivityManager
 import android.os.Bundle
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.example.bamia.R
+import com.example.bamia.managers.NetworkManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
- * 모드 선택 및 시작 화면
- * SharedPreferences에 저장된 마지막 모드를 확인하여 해당 모드로 진입하고,
- * 저장된 기록이 없으면 모드 선택 다이얼로그를 표시합니다.
+ * 모드 선택 및 시작 화면 (전체화면 모드 선택)
  */
 class LauncherActivity : AppCompatActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 시스템 표시줄 및 내비게이션 바 색상 검정으로 설정
+        window.statusBarColor = Color.BLACK
+        window.navigationBarColor = Color.BLACK
 
-        // SharedPreferences에 저장된 모드 확인
-        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        val lastMode = prefs.getString("last_mode", null)
+        setContentView(R.layout.activity_mode_selection)
 
-        if (lastMode == null) {
-            showModeSelectionDialog()
-        } else {
-            when (lastMode) {
-                "camera" -> startActivity(Intent(this, CameraModeActivity::class.java))
-                "viewer" -> startActivity(Intent(this, ViewerActivity::class.java))
-            }
+        // WIFI 연결 여부 체크 (간단하게 IP가 "0.0.0.0"이면 연결되지 않은 것으로 간주)
+        val networkManager = NetworkManager.getInstance(this)
+        val tvWifiWarning = findViewById<android.widget.TextView>(R.id.tvWifiWarning)
+        if (networkManager.ipAddress == "0.0.0.0") {
+            tvWifiWarning.visibility = android.view.View.VISIBLE
+        }
+
+        // 버튼 클릭 리스너 설정
+        findViewById<android.widget.Button>(R.id.btnCameraMode).setOnClickListener {
+            // 카메라 모드 시작 → 설정 화면으로 이동
+            startActivity(Intent(this, SettingsActivity::class.java))
+            finish()
+        }
+
+        findViewById<android.widget.Button>(R.id.btnViewerMode).setOnClickListener {
+            // 뷰어 모드 시작 → 뷰어 화면으로 이동
+            startActivity(Intent(this, ViewerConnectionActivity::class.java))
             finish()
         }
     }
 
-    private fun showModeSelectionDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("모드 선택")
-            .setMessage("카메라 모드와 뷰어 모드 중 하나를 선택하세요.")
-            .setPositiveButton("카메라 모드") { _, _ ->
-                saveMode("camera")
-                startActivity(Intent(this, CameraModeActivity::class.java))
-                finish()
+    @Suppress("MissingSuperCall")
+    override fun onBackPressed() {
+        MaterialAlertDialogBuilder(this, R.style.AlertDialogTheme)
+            .setTitle("종료 확인")
+            .setMessage("종료하시겠습니까?")
+            .setPositiveButton("종료") { _, _ ->
+                finishAffinity()
             }
-            .setNegativeButton("뷰어 모드") { _, _ ->
-                saveMode("viewer")
-                startActivity(Intent(this, ViewerActivity::class.java))
-                finish()
+            .setNegativeButton("취소") { dialog, _ ->
+                dialog.dismiss()
             }
-            .setCancelable(false)
             .show()
-    }
-
-    private fun saveMode(mode: String) {
-        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("last_mode", mode).apply()
     }
 }
