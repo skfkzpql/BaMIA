@@ -18,7 +18,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-        <!-- 원격 연결 정보: 코드에서 연결된 기기의 IP, PIN, 아기이름으로 업데이트 -->
+        <!-- 원격 연결 정보: 코드에서 업데이트 -->
         <TextView
             android:id="@+id/tvRemoteInfo"
             android:layout_width="0dp"
@@ -52,12 +52,26 @@
             android:id="@+id/webView"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-        <!-- OverlayView: 표정 정보 등 오버레이 -->
+
+        <!-- 표정 오버레이: WebView의 좌측 상단에 고정 (상단바 아래, streamContainer 내부) -->
+        <TextView
+            android:id="@+id/expressionOverlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="16dp"
+            android:background="#88000000"
+            android:text="중립"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp" />
+
+        <!-- 기존 OverlayView (필요한 경우) -->
         <com.example.bamia.ui.OverlayView
             android:id="@+id/overlayView"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-        <!-- 하단 컨트롤바 (오버랩, 높이 100dp, 배경: #80444444) -->
+
+        <!-- 하단 컨트롤바 (오버랩, 높이 120dp, 배경: #80444444) -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/bottomBar"
             android:layout_width="match_parent"
@@ -142,13 +156,13 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent">
                 <ImageButton
-                    android:id="@+id/btnSwitchCamera"
+                    android:id="@+id/btnToggleMic"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:src="@drawable/camera_switch"
+                    android:src="@drawable/ic_audio_off"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="카메라 전환"/>
+                    android:contentDescription="마이크 토글"/>
             </FrameLayout>
 
             <!-- 우측 여백 (space4) -->

@@ -1,6 +1,7 @@
 package com.example.bamia.services
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
@@ -19,6 +20,7 @@ class NotificationPollingService : Service() {
     private val pollingInterval = 1000L  // 1초마다 폴링
     private lateinit var networkManager: NetworkManager
     private var isPolling = false
+    private var lastNotifiedEvent: String = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -56,42 +58,63 @@ class NotificationPollingService : Service() {
     private fun pollNotificationEndpoint() {
         Thread {
             try {
-                val ip = networkManager.ipAddress
-                val pin = networkManager.pin
-                // 예를 들어 /sleep 엔드포인트를 사용 (서버에서 수면/기상 이벤트만 반환)
+                val prefs = getSharedPreferences("viewer_prefs", Context.MODE_PRIVATE)
+                val ip = prefs.getString("viewer_ip", "") ?: ""
+                val pin = prefs.getString("viewer_pin", "") ?: ""
+                if (ip.isEmpty() || pin.isEmpty()) {
+                    Log.w("NotificationPollingService", "뷰어 연결 정보가 누락되었습니다.")
+                    return@Thread
+                }
+
                 val url = URL("http://$ip:8080/sleep?pin=$pin")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.connectTimeout = 3000
                 connection.readTimeout = 3000
 
-                // 최대 응답 크기를 1KB로 제한
                 val maxResponseSize = 1024 // bytes
                 val reader = connection.inputStream.bufferedReader()
-                val stringBuilder = StringBuilder()
+                val sb = StringBuilder()
                 var totalRead = 0
                 while (true) {
-                    val currentLine = reader.readLine() ?: break
-                    totalRead += currentLine.length
-                    if (totalRead > maxResponseSize) {
-                        break
-                    }
-                    stringBuilder.append(currentLine)
+                    val line = reader.readLine() ?: break
+                    totalRead += line.length
+                    if (totalRead > maxResponseSize) break
+                    sb.append(line)
                 }
-                val response = stringBuilder.toString().trim()
+                val response = sb.toString().trim()
                 connection.disconnect()
 
-                // 만약 응답이 비어있거나, MJPEG 스트림의 일부(예: --BoundaryString)가 포함되어 있다면 무시
                 if (response.isNotEmpty() && !response.contains("--BoundaryString")) {
                     Log.d("NotificationPollingService", "알림 메시지 수신: $response")
-                    // 수면 이벤트(수면 시작 혹은 기상 이벤트)일 때만 알림을 발생시킴
-                    NotificationHelper.notifySleepStarted(this, response)
+                    // 중복 알림 방지: 마지막 전송 이벤트와 동일하면 무시
+                    if (response == lastNotifiedEvent) {
+                        return@Thread
+                    }
+
+                    // 케밥 메뉴 설정에 따라 필터링
+                    val shouldNotify = when(response) {
+                        "수면" -> prefs.getBoolean("notify_sleep", true)
+                        "기상" -> prefs.getBoolean("notify_wakeup", true)
+                        "얼굴 미감지" -> prefs.getBoolean("notify_face", true)
+                        "행복" -> prefs.getBoolean("notify_smile", true)
+                        "슬픔" -> prefs.getBoolean("notify_cry", true)
+                        else -> false
+                    }
+                    if (shouldNotify) {
+                        NotificationHelper.notifyCameraEvent(this, response)
+                        lastNotifiedEvent = response
+                        // "얼굴 미감지"의 경우 한 번만 알림을 보낸 후, SleepInfoHolder를 초기화해서 이후 전송을 막습니다.
+                        if(response == "얼굴 미감지"){
+                            // SleepInfoHolder.sleepMessage를 비워 연속 알림을 막음
+                            com.example.bamia.ui.SleepInfoHolder.sleepMessage = ""
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }.start()
     }
-
 
 
 
